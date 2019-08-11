@@ -1,0 +1,51 @@
+version: '0.1'
+
+services:
+
+  fluentd:
+    build: ./fluentd
+    container_name: fluentd
+    volumes:
+      # FluentD TD-Agent config
+      - ./fluentd/conf:/fluentd/etc
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+
+  # https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html - more info Rafeal
+  # Elasticsearch requires your vm.max_map_count set to 262144
+  # sysctl -w vm.max_map_count=262144
+  # When we at this to /etc/sysctl.conf for making it permanent
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:6.5.4
+    container_name: elasticsearch
+    environment:
+      # https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-configuration-memory.html 
+      - bootstrap.memory_lock=true
+      # https://www.elastic.co/guide/en/elasticsearch/reference/current/heap-size.html
+      # By default, Elasticsearch tells the JVM to use a heap with a minimum and maximum size of 1 GB. 
+      # ES_JAVA_OPTS="-Xms4000m -Xmx4000m" - 4GB Min and MAX
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:   
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+       # Shared Volumes
+      - esdata1:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:6.5.4
+    container_name: kibana
+    environment:
+      ELASTICSEARCH_URL: "http://elasticsearch:9200" # ENV_VAR
+    ports:
+      - 5601:5601 
+    depends_on:
+      - elasticsearch
+
+volumes:
+  esdata1:
+    driver: local
